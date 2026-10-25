@@ -1,19 +1,30 @@
 import { type ReactNode } from 'react'
-import { Shield } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
+import { Wordmark } from '@/components/landing/BrandMark'
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12">
-      <div className="mb-8 flex items-center gap-2">
-        <Shield className="h-7 w-7" />
-        <span className="text-2xl font-bold">Sanrakshak</span>
-      </div>
-      <div className="w-full max-w-md">
-        {children}
-      </div>
-      <p className="mt-8 text-xs text-muted-foreground">
+    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-12">
+      <div aria-hidden="true" className="hero-aurora opacity-50" />
+      <div aria-hidden="true" className="absolute inset-0 grid-lines opacity-40" />
+
+      <Link to="/" className="relative mb-8 inline-flex items-center" aria-label="Sanrakshak home">
+        <Wordmark markClassName="h-8 w-8" />
+      </Link>
+
+      <div className="relative w-full max-w-md">{children}</div>
+
+      <p className="type-mono relative mt-8 text-[0.56rem] uppercase tracking-[0.2em] text-muted-foreground/60">
         Protect. Analyze. Secure.
       </p>
+      <Link
+        to="/"
+        className="relative mt-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-3 w-3" />
+        Back to home
+      </Link>
     </div>
   )
 }

@@ -21,9 +21,9 @@ interface Scan {
 const EXAMPLE_URLS = ['https://example.com', 'https://testsite.org', 'https://myapp.dev']
 
 function getScoreColor(score: number) {
-  if (score >= 80) return 'text-green-600'
-  if (score >= 50) return 'text-yellow-600'
-  return 'text-red-600'
+  if (score >= 80) return 'text-success'
+  if (score >= 50) return 'text-warning'
+  return 'text-destructive'
 }
 
 function getInitials(url: string) {
@@ -212,12 +212,12 @@ export default function NewScan() {
                     <div className={`w-9 h-9 rounded-lg border flex items-center justify-center text-xs font-semibold shrink-0 ${
                       scan.status === 'completed'
                         ? scan.score && scan.score >= 80
-                          ? 'border-green-200 text-green-700 bg-green-50'
+                          ? 'border-success/30 text-success bg-success/10'
                           : scan.score && scan.score >= 50
-                            ? 'border-yellow-200 text-yellow-700 bg-yellow-50'
-                            : 'border-red-200 text-red-700 bg-red-50'
+                            ? 'border-warning/30 text-warning bg-warning/10'
+                            : 'border-destructive/30 text-destructive bg-destructive/10'
                         : scan.status === 'running'
-                          ? 'border-blue-200 text-blue-700 bg-blue-50'
+                          ? 'border-ice/30 text-ice bg-ice/10'
                           : 'border-border text-muted-foreground'
                     }`}>
                       {getInitials(scan.website)}

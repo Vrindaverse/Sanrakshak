@@ -81,8 +81,8 @@ function ScoreGauge({ score }: { score: number }) {
   return (
     <div className="relative w-24 h-24 sm:w-28 sm:h-28">
       <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
-        <circle cx="60" cy="60" r="52" fill="none" stroke="hsl(var(--border))" strokeWidth="6" />
-        <circle cx="60" cy="60" r="52" fill="none" stroke="hsl(var(--foreground))" strokeWidth="6" strokeLinecap="round" strokeDasharray={stroke} strokeDashoffset={offset} className="transition-all duration-1000 ease-out" />
+        <circle cx="60" cy="60" r="52" fill="none" stroke="var(--border)" strokeWidth="6" />
+        <circle cx="60" cy="60" r="52" fill="none" stroke="var(--foreground)" strokeWidth="6" strokeLinecap="round" strokeDasharray={stroke} strokeDashoffset={offset} className="transition-all duration-1000 ease-out" />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-xl sm:text-2xl font-bold">{score}</span>

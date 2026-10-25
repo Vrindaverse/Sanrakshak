@@ -28,9 +28,9 @@ interface Scan {
 }
 
 function getScoreColor(score: number) {
-  if (score >= 80) return 'text-green-600'
-  if (score >= 50) return 'text-yellow-600'
-  return 'text-red-600'
+  if (score >= 80) return 'text-success'
+  if (score >= 50) return 'text-warning'
+  return 'text-destructive'
 }
 
 function getScoreLabel(score: number) {
@@ -52,12 +52,12 @@ function ScoreRing({ score, size = 72 }: { score: number; size?: number }) {
   const radius = (size - strokeWidth) / 2
   const circumference = radius * 2 * Math.PI
   const offset = circumference - (score / 100) * circumference
-  const color = score >= 80 ? '#16a34a' : score >= 50 ? '#ca8a04' : '#dc2626'
+  const color = score >= 80 ? 'var(--acid)' : score >= 50 ? 'var(--warning)' : 'var(--destructive)'
 
   return (
     <div className="relative inline-flex items-center justify-center">
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="hsl(var(--muted))" strokeWidth={strokeWidth} />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--muted)" strokeWidth={strokeWidth} />
         <circle
           cx={size / 2} cy={size / 2} r={radius}
           fill="none" stroke={color} strokeWidth={strokeWidth}
@@ -205,12 +205,12 @@ export default function Dashboard() {
                     <div className={`w-9 h-9 rounded-lg border flex items-center justify-center text-xs font-semibold shrink-0 ${
                       scan.status === 'completed'
                         ? scan.score && scan.score >= 80
-                          ? 'border-green-200 text-green-700 bg-green-50'
+                          ? 'border-success/30 text-success bg-success/10'
                           : scan.score && scan.score >= 50
-                            ? 'border-yellow-200 text-yellow-700 bg-yellow-50'
-                            : 'border-red-200 text-red-700 bg-red-50'
+                            ? 'border-warning/30 text-warning bg-warning/10'
+                            : 'border-destructive/30 text-destructive bg-destructive/10'
                         : scan.status === 'running'
-                          ? 'border-blue-200 text-blue-700 bg-blue-50'
+                          ? 'border-ice/30 text-ice bg-ice/10'
                           : 'border-border text-muted-foreground'
                     }`}>
                       {getInitials(scan.website)}
