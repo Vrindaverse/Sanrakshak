@@ -37,8 +37,6 @@ export function ScanConsole() {
 
   useEffect(() => {
     if (!inView) return
-    setVisibleCount(1)
-    setDone(false)
     let index = 1
     const interval = window.setInterval(() => {
       index += 1
@@ -67,7 +65,7 @@ export function ScanConsole() {
             sanrakshak — demo session
           </span>
         </div>
-        <span className="type-mono rounded-full border border-white/10 px-2 py-0.5 text-[0.55rem] uppercase tracking-[0.18em] text-muted-foreground/70">
+        <span className="type-mono rounded-full border border-white/10 px-2 py-0.5 text-[0.58rem] uppercase tracking-[0.18em] text-muted-foreground/75">
           example.com
         </span>
       </div>
@@ -81,7 +79,7 @@ export function ScanConsole() {
             const isLast = index === visibleLines.length - 1
             return (
               <div key={`${run}-${line.text}`} className="terminal-line flex items-start gap-2.5">
-                <span className="w-3 shrink-0 text-right text-muted-foreground/50">{line.prompt}</span>
+                <span className="w-3 shrink-0 text-right text-muted-foreground/70">{line.prompt}</span>
                 <span className={cn(TONE[line.tone], 'min-w-0')}>
                   {line.text}
                   {isLast && !done ? (
@@ -103,7 +101,7 @@ export function ScanConsole() {
             { label: 'Jargon', to: 0 },
           ].map((stat) => (
             <div key={stat.label} className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
-              <p className="type-mono text-[0.55rem] uppercase tracking-[0.18em] text-muted-foreground/70">{stat.label}</p>
+              <p className="type-mono text-[0.58rem] uppercase tracking-[0.18em] text-muted-foreground/75">{stat.label}</p>
               <p className={cn('type-mono mt-1 text-lg tabular-nums', stat.label === 'Jargon' ? 'text-acid' : 'text-foreground')}>
                 <Counter key={`${run}-${stat.label}`} to={stat.to} />
               </p>
@@ -121,8 +119,12 @@ export function ScanConsole() {
         </div>
         <button
           type="button"
-          onClick={() => setRun((value) => value + 1)}
-          className="type-mono inline-flex items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1 text-[0.58rem] uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:border-white/25 hover:text-foreground"
+          onClick={() => {
+            setVisibleCount(1)
+            setDone(false)
+            setRun((value) => value + 1)
+          }}
+          className="type-mono inline-flex items-center gap-1.5 rounded-full border border-white/10 h-11 px-3 text-[0.6rem] uppercase tracking-[0.16em] text-muted-foreground lg:h-8 lg:px-2.5 lg:text-[0.58rem] transition-colors hover:border-white/25 hover:text-foreground"
         >
           <RotateCcw className="h-3 w-3" />
           Replay

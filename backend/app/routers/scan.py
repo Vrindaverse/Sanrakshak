@@ -24,6 +24,10 @@ async def create_scan(
     if not website.startswith(("http://", "https://")):
         website = "https://" + website
 
+    # Basic validation
+    if len(website) > 500:
+        raise HTTPException(status_code=400, detail="Invalid website")
+
     scan = Scan(user_id=user.id, website=website, status="running")
     db.add(scan)
     await db.commit()

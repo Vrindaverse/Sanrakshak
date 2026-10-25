@@ -1,6 +1,7 @@
 import uuid
 from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
@@ -11,7 +12,7 @@ from app.models.scan import Scan, Vulnerability
 router = APIRouter(prefix="/api", tags=["report"])
 
 
-@router.get("/report/{scan_id}")
+@router.get("/report/{scan_id}", response_class=HTMLResponse)
 async def get_report(
     scan_id: uuid.UUID,
     user: User = Depends(get_current_user),
@@ -27,7 +28,8 @@ async def get_report(
     vuln_result = await db.execute(select(Vulnerability).where(Vulnerability.scan_id == scan_id))
     vulns = vuln_result.scalars().all()
 
-    return generate_html_report(scan, list(vulns))
+    content = generate_html_report(scan, list(vulns))
+    return HTMLResponse(content=content)
 
 
 @router.get("/download/{scan_id}")
@@ -49,12 +51,11 @@ async def download_report(
 
     if fmt == "html":
         content = generate_html_report(scan, list(vulns))
-        media_type = "text/html"
+        media_type = "text/html; charset=utf-8"
         filename = f"sanrakshak-report-{scan_id}.html"
     else:
         content = generate_markdown_report(scan, list(vulns))
-        media_type = "text/markdown"
+        media_type = "text/markdown; charset=utf-8"
         filename = f"sanrakshak-report-{scan_id}.md"
 
-    from fastapi.responses import Response
-    return Response(content=content, media_type=media_type, headers={"Content-Disposition": f"attachment; filename={filename}"})
+    return Response(content=content, media_type=media_type, headers={"Content-Disposition": f'attachment; filename="{filename}"'})

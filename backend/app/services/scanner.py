@@ -3,14 +3,72 @@ import hashlib
 import subprocess
 import json
 import re
+import ipaddress
+from urllib.parse import urlparse
 
 
 def _strip_proto(target: str) -> str:
-    return target.replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
+    t = target.strip()
+    # Remove protocol
+    if "://" in t:
+        t = t.split("://", 1)[1]
+    # Remove path/query/fragment
+    t = t.split("/", 1)[0].split("?", 1)[0].split("#", 1)[0]
+    # Remove port for nmap/host purposes if present (we handle separately)
+    # But keep as-is carefully
+    return t
+
+
+def _validate_target(target: str) -> str:
+    """Validate and normalize target to prevent command injection/SSRF."""
+    if not target or not isinstance(target, str):
+        raise ValueError("Invalid target")
+    t = target.strip()
+    # Disallow newlines/control chars
+    if any(ord(c) < 32 or ord(c) == 127 for c in t):
+        raise ValueError("Invalid target")
+    # Disallow shell metachars
+    if re.search(r'[;&|`$()<>"]', t):
+        raise ValueError("Invalid target")
+    # Try to parse as URL
+    parsed = urlparse(t if "://" in t else "http://" + t)
+    host = parsed.hostname
+    if not host:
+        raise ValueError("Invalid target")
+    # Block localhost/internal/private/reserved/link-local/multicast
+    is_private_ip = False
+    try:
+        ip = ipaddress.ip_address(host)
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
+            is_private_ip = True
+    except ValueError:
+        pass  # it's a hostname, not IP literal
+
+    if is_private_ip:
+        raise ValueError("Invalid target")
+    # Basic hostname validation
+    if re.match(r'^localhost$|^localhost\.' , host, re.IGNORECASE):
+        raise ValueError("Invalid target")
+
+    if not re.match(r'^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$', host):
+        raise ValueError("Invalid target")
+    # Normalize
+    scheme = parsed.scheme if parsed.scheme in ("http", "https") else ("https" if t.startswith("https") else "http")
+    return f"{scheme}://{host}"
 
 
 def run_nmap(target: str) -> dict:
-    host = _strip_proto(target)
+    try:
+        validated = _validate_target(target)
+    except Exception as e:
+        return {
+            "tool": "Nmap",
+            "status": "error",
+            "summary": "Invalid target",
+            "raw": str(e),
+            "interpretation": [{"finding": "Invalid target", "detail": "Target validation failed.", "severity": "info"}],
+        }
+    host = _strip_proto(validated)
     cmd = ["nmap", "-Pn", "-sV", "-sC", "-T4", "--min-rate", "500", host]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
@@ -54,12 +112,27 @@ def run_nmap(target: str) -> dict:
 
 
 def run_nikto(target: str) -> dict:
-    host = _strip_proto(target)
-    safe_name = hashlib.md5(target.encode()).hexdigest()[:12]
+    try:
+        validated = _validate_target(target)
+    except Exception as e:
+        return {
+            "tool": "Nikto",
+            "status": "error",
+            "summary": "Invalid target",
+            "raw": str(e),
+            "interpretation": [{"finding": "Invalid target", "detail": "Target validation failed.", "severity": "info"}],
+        }
+    parsed = urlparse(validated)
+    host = parsed.hostname
+    safe_name = hashlib.md5(validated.encode()).hexdigest()[:12]
     output_path = f"/tmp/nikto_{safe_name}"
-    if target.startswith("https://"):
-        host = f"{host}:443"
-    cmd = ["nikto", "-h", host, "-ssl", "-Format", "txt", "-nointeractive", "-output", output_path]
+    if parsed.scheme == "https":
+        parsed = urlparse("http://" + validated)
+    cmd_host = f"{parsed.hostname}:{parsed.port or (443 if parsed.scheme == 'https' else 80)}"
+    if parsed.scheme == "https":
+        cmd = ["nikto", "-h", parsed.hostname, "-port", str(parsed.port or 443), "-ssl", "-Format", "txt", "-nointeractive", "-output", output_path]
+    else:
+        cmd = ["nikto", "-h", parsed.hostname, "-port", str(parsed.port or 80), "-Format", "txt", "-nointeractive", "-output", output_path]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, cwd="/tmp")
         raw = (result.stdout or "") + (result.stderr or "")
@@ -106,9 +179,19 @@ def run_nikto(target: str) -> dict:
 
 
 def run_zap(target: str) -> dict:
-    safe_name = hashlib.md5(target.encode()).hexdigest()[:12]
+    try:
+        validated = _validate_target(target)
+    except Exception as e:
+        return {
+            "tool": "OWASP ZAP",
+            "status": "error",
+            "summary": "Invalid target",
+            "raw": str(e),
+            "interpretation": [{"finding": "Invalid target", "detail": "Target validation failed.", "severity": "info"}],
+        }
+    safe_name = hashlib.md5(validated.encode()).hexdigest()[:12]
     output_path = f"/tmp/zap_report_{safe_name}.json"
-    cmd = ["zap-cli", "--quick", target, "--output", output_path]
+    cmd = ["zap-cli", "--quick", validated, "--output", output_path]
     raw = ""
     alerts = []
     try:
@@ -162,10 +245,21 @@ def run_zap(target: str) -> dict:
 
 
 async def run_scanners(target: str) -> list[dict]:
+    # Validate once
+    try:
+        validated = _validate_target(target)
+    except Exception:
+        return [{
+            "tool": "Nmap",
+            "status": "error",
+            "summary": "Invalid target",
+            "raw": "Target validation failed",
+            "interpretation": [{"finding": "Invalid target", "detail": "Target validation failed.", "severity": "info"}],
+        }]
     loop = asyncio.get_running_loop()
-    nmap_task = loop.run_in_executor(None, run_nmap, target)
-    nikto_task = loop.run_in_executor(None, run_nikto, target)
-    zap_task = loop.run_in_executor(None, run_zap, target)
+    nmap_task = loop.run_in_executor(None, run_nmap, validated)
+    nikto_task = loop.run_in_executor(None, run_nikto, validated)
+    zap_task = loop.run_in_executor(None, run_zap, validated)
 
     results = await asyncio.gather(nmap_task, nikto_task, zap_task, return_exceptions=True)
     valid = []
@@ -180,14 +274,16 @@ def extract_vulnerabilities(tool_results: list[dict]) -> list[dict]:
     seen = set()
 
     for tool in tool_results:
-        if tool.get("status") == "not_installed":
+        if tool.get("status") in ("not_installed", "error"):
             continue
         for item in tool.get("interpretation", []):
             title = item.get("finding", "")
+            if not title or title == "No open ports detected" or title == "No issues detected" or title == "No alerts detected":
+                continue
             if title in seen:
                 continue
             seen.add(title)
-            severity = item.get("severity", "low")
+            severity = str(item.get("severity", "low")).lower()
             if severity not in ("critical", "high", "medium", "low", "info"):
                 severity = "low"
             vulns.append({

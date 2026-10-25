@@ -289,6 +289,32 @@
   padding-block: clamp(5rem, 10vw, 9rem);
 }
 
+.skip-link {
+  position: fixed;
+  left: 1rem;
+  top: 1rem;
+  z-index: 200;
+  transform: translateY(-160%);
+  border-radius: 999px;
+  background: var(--acid);
+  color: var(--acid-ink);
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 0.8rem 1.2rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transition: transform 200ms ease;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline-offset: 4px;
+}
+
 .type-display {
   font-family: "Instrument Serif", "Iowan Old Style", Georgia, serif;
   font-weight: 400;

@@ -21,22 +21,32 @@ import { Counter } from '@/components/landing/Counter'
 import { MagneticButton, MagneticLink } from '@/components/landing/MagneticButton'
 import { PortGrid } from '@/components/landing/PortGrid'
 import { Preloader } from '@/components/landing/Preloader'
-import { Reveal, Stagger, revealItem } from '@/components/landing/Reveal'
+import { Reveal, Stagger } from '@/components/landing/Reveal'
 import { ScanConsole } from '@/components/landing/ScanConsole'
 import { ScrollProgress } from '@/components/landing/ScrollProgress'
 import { SiteHeader } from '@/components/landing/SiteHeader'
 import { TiltCard } from '@/components/landing/TiltCard'
+import { ThreatGlobe } from '@/components/landing/ThreatGlobe'
 import { VelocityMarquee } from '@/components/landing/VelocityMarquee'
 import { Wordmark } from '@/components/landing/BrandMark'
 
 const heroContainer = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.09, delayChildren: 0.15 } },
+  show: { transition: { staggerChildren: 0.12, delayChildren: 0.2 } },
 }
 
 const heroItem = {
-  hidden: { opacity: 0, y: 26 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.85, ease: [0.22, 1, 0.36, 1] as const } },
+  hidden: { opacity: 0, y: 30, filter: 'blur(4px)' },
+  show: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 1, ease: [0.22, 1, 0.36, 1] as const } },
+}
+
+const revealItem = {
+  hidden: { opacity: 0, y: 22 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as const },
+  },
 }
 
 const heroMetrics = [
@@ -165,12 +175,13 @@ export default function Home() {
 
   return (
     <div id="top" className="site-page">
+      <a href="#main-content" className="skip-link">Skip to content</a>
       <Preloader />
       <ChromeCursor />
       <ScrollProgress />
       <SiteHeader />
 
-      <main className="relative z-10">
+      <main id="main-content" tabIndex={-1} className="relative z-10">
         <section className="relative min-h-[100svh] overflow-hidden pt-24 md:pt-28">
           <div className="hero-aurora" />
           <div className="absolute inset-0 grid-lines opacity-60" />
@@ -256,18 +267,36 @@ export default function Home() {
           </div>
 
           <div className="section-shell relative flex items-center gap-5 pb-8">
-            <span className="type-mono whitespace-nowrap text-[0.55rem] uppercase tracking-[0.2em] text-muted-foreground/60">
+            <span className="type-mono whitespace-nowrap text-[0.55rem] uppercase tracking-[0.2em] text-muted-foreground/75">
               Scroll to inspect
             </span>
             <span className="h-px flex-1 bg-gradient-to-r from-white/15 to-transparent" />
             <ArrowDown
-              className="h-3.5 w-3.5 text-muted-foreground/60"
+              className="h-3.5 w-3.5 text-muted-foreground/75"
               style={{ animation: 'float-soft 2.4s ease-in-out infinite' }}
             />
           </div>
         </section>
 
         <VelocityMarquee items={signalItems} />
+
+        <section id="surface" className="section-pad relative scroll-mt-24 overflow-hidden border-t border-white/[0.06]">
+          <div className="section-shell">
+            <div className="grid items-center gap-10 lg:grid-cols-[1fr_1.1fr]">
+              <Reveal>
+                <SectionHeading index="05" label="Surface">
+                  Your attack surface, <em className="chrome-text">in orbit.</em>
+                </SectionHeading>
+                <p className="mt-6 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base">
+                  Drag to rotate. Every point is a live finding. The globe is the map attackers use.
+                </p>
+              </Reveal>
+              <div className="relative h-[420px] sm:h-[520px]">
+                <ThreatGlobe className="h-full w-full" />
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section id="capabilities" className="section-pad relative scroll-mt-24">
           <div className="section-shell">
@@ -325,7 +354,7 @@ export default function Home() {
                     </div>
                   ))}
                 </div>
-                <p className="type-mono mt-5 border-t border-white/[0.06] pt-3 text-[0.55rem] uppercase tracking-[0.16em] text-muted-foreground/60">
+                <p className="type-mono mt-5 border-t border-white/[0.06] pt-3 text-[0.55rem] uppercase tracking-[0.16em] text-muted-foreground/75">
                   Weighted by exploitability
                 </p>
               </TiltCard>
@@ -362,7 +391,7 @@ export default function Home() {
                   Findings in English
                 </h3>
                 <div className="mt-5 space-y-3">
-                  <p className="font-mono text-[0.62rem] leading-relaxed text-muted-foreground/60 line-through decoration-destructive/60">
+                  <p className="font-mono text-[0.62rem] leading-relaxed text-muted-foreground/75 line-through decoration-destructive/60">
                     Content-Security-Policy header not set
                   </p>
                   <p className="text-sm leading-relaxed text-foreground/85">
@@ -435,7 +464,7 @@ export default function Home() {
                           <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
                             {step.body}
                           </p>
-                          <p className="type-mono mt-3 text-[0.55rem] uppercase tracking-[0.18em] text-muted-foreground/55">
+                          <p className="type-mono mt-3 text-[0.58rem] uppercase tracking-[0.18em] text-muted-foreground/75">
                             {step.meta}
                           </p>
                         </div>
@@ -449,7 +478,7 @@ export default function Home() {
                 <Reveal delay={0.1}>
                   <ScanConsole />
                 </Reveal>
-                <p className="type-mono mt-3 text-center text-[0.55rem] uppercase tracking-[0.16em] text-muted-foreground/55">
+                <p className="type-mono mt-3 text-center text-[0.58rem] uppercase tracking-[0.16em] text-muted-foreground/75">
                   Illustrative session. Your report is generated from your target.
                 </p>
               </div>
@@ -510,7 +539,7 @@ export default function Home() {
                   Explore capabilities
                 </MagneticLink>
               </div>
-              <p className="type-mono mt-6 text-[0.56rem] uppercase tracking-[0.18em] text-muted-foreground/65">
+              <p className="type-mono mt-6 text-[0.58rem] uppercase tracking-[0.18em] text-muted-foreground/75">
                 Free to start · No credit card · No setup
               </p>
             </Reveal>
@@ -527,12 +556,12 @@ export default function Home() {
                 Automated vulnerability assessment and AI-written security reports,
                 built for people who are not security specialists.
               </p>
-              <p className="type-mono mt-6 text-[0.58rem] uppercase tracking-[0.2em] text-muted-foreground/60">
+              <p className="type-mono mt-6 text-[0.58rem] uppercase tracking-[0.2em] text-muted-foreground/75">
                 Protect. Analyze. Secure.
               </p>
             </div>
             <div>
-              <p className="type-mono text-[0.55rem] uppercase tracking-[0.2em] text-muted-foreground/55">Explore</p>
+              <p className="type-mono text-[0.58rem] uppercase tracking-[0.2em] text-muted-foreground/75">Explore</p>
               <div className="mt-4 space-y-2.5">
                 {[
                   { label: 'Capabilities', href: '#capabilities' },
@@ -540,14 +569,14 @@ export default function Home() {
                   { label: 'Why it matters', href: '#why' },
                   { label: 'Start a scan', href: '#start' },
                 ].map((link) => (
-                  <a key={link.href} href={link.href} className="block text-sm text-muted-foreground transition-colors hover:text-foreground">
+                  <a key={link.href} href={link.href} className="flex min-h-11 items-center text-sm text-muted-foreground transition-colors hover:text-foreground lg:min-h-0 lg:py-0.5">
                     {link.label}
                   </a>
                 ))}
               </div>
             </div>
             <div>
-              <p className="type-mono text-[0.55rem] uppercase tracking-[0.2em] text-muted-foreground/55">Engines</p>
+              <p className="type-mono text-[0.58rem] uppercase tracking-[0.2em] text-muted-foreground/75">Engines</p>
               <div className="mt-4 space-y-2.5 text-sm text-muted-foreground">
                 <p>Nmap</p>
                 <p>Nikto</p>
@@ -557,10 +586,10 @@ export default function Home() {
             </div>
           </div>
           <div className="mt-12 flex flex-col gap-3 border-t border-white/[0.07] pt-6 sm:flex-row sm:items-center sm:justify-between">
-            <p className="type-mono text-[0.58rem] uppercase tracking-[0.16em] text-muted-foreground/55">
+            <p className="type-mono text-[0.58rem] uppercase tracking-[0.16em] text-muted-foreground/75">
               &copy; {new Date().getFullYear()} Sanrakshak
             </p>
-            <p className="type-mono inline-flex items-center gap-2 text-[0.58rem] uppercase tracking-[0.16em] text-muted-foreground/55">
+            <p className="type-mono inline-flex items-center gap-2 text-[0.58rem] uppercase tracking-[0.16em] text-muted-foreground/75">
               <span className="status-dot" />
               Built for clarity
             </p>

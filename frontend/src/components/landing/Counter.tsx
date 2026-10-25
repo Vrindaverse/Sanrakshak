@@ -27,7 +27,9 @@ export function Counter({ to, pad = 2, duration = 1100, className }: CounterProp
         }
       },
     })
-    return () => animation.pause()
+    return () => {
+      animation.pause()
+    }
   }, [inView, to, pad, duration])
 
   return (

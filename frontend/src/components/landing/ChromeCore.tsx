@@ -211,7 +211,7 @@ export function ChromeCore({ className }: { className?: string }) {
         color: toThreeColor(ice, '#b9d7ff'),
         wireframe: true,
         transparent: true,
-        opacity: 0.07,
+        opacity: 0.12,
         depthWrite: false,
       })
       const wire = new THREE.Mesh(wireGeometry, wireMaterial)
@@ -220,7 +220,7 @@ export function ChromeCore({ className }: { className?: string }) {
       const haloMaterial = new THREE.MeshBasicMaterial({
         color: toThreeColor(acid, '#b8ff4f'),
         transparent: true,
-        opacity: 0.6,
+        opacity: 0.7,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       })
@@ -234,15 +234,15 @@ export function ChromeCore({ className }: { className?: string }) {
       haloB.rotation.set(Math.PI / 1.7, 0.4, -0.3)
       group.add(haloB)
 
-      const ringA = makeTextRing('SANRAKSHAK', 1.92, 0.92, acid, 0.52)
-      const ringB = makeTextRing('ATTACK SURFACE', 2.15, -0.95, ice, 0.36)
+      const ringA = makeTextRing('SANRAKSHAK', 1.92, 0.92, acid, 0.58)
+      const ringB = makeTextRing('ATTACK SURFACE', 2.15, -0.95, ice, 0.42)
       group.add(ringA, ringB)
 
       const random = seededRandom(20261026)
-      const particleCount = 760
+      const particleCount = 900
       const positions = new Float32Array(particleCount * 3)
       for (let i = 0; i < particleCount; i += 1) {
-        const radius = 2.05 + random() * 2.5
+        const radius = 2.05 + random() * 2.8
         const theta = random() * Math.PI * 2
         const phi = Math.acos(2 * random() - 1)
         positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta)
@@ -253,10 +253,10 @@ export function ChromeCore({ className }: { className?: string }) {
       particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
       const particleMaterial = new THREE.PointsMaterial({
         color: toThreeColor(ice, '#b9d7ff'),
-        size: 0.016,
+        size: 0.018,
         sizeAttenuation: true,
         transparent: true,
-        opacity: 0.7,
+        opacity: 0.8,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       })
@@ -265,18 +265,18 @@ export function ChromeCore({ className }: { className?: string }) {
 
       const glowTexture = makeGlowTexture()
       const markers: { sprite: THREE.Sprite; base: number; phase: number }[] = []
-      const markerColors = [acid, acid, ice, ice, warning, acid, ice]
+      const markerColors = [acid, acid, ice, ice, warning, acid, ice, acid]
       for (let i = 0; i < markerColors.length; i += 1) {
         const material = new THREE.SpriteMaterial({
           map: glowTexture,
           color: toThreeColor(markerColors[i], '#b8ff4f'),
           transparent: true,
-          opacity: 0.75,
+          opacity: 0.8,
           blending: THREE.AdditiveBlending,
           depthWrite: false,
         })
         const sprite = new THREE.Sprite(material)
-        const radius = 1.86 + random() * 0.6
+        const radius = 1.86 + random() * 0.7
         const theta = random() * Math.PI * 2
         const phi = Math.acos(2 * random() - 1)
         sprite.position.set(
@@ -284,7 +284,7 @@ export function ChromeCore({ className }: { className?: string }) {
           radius * Math.cos(phi),
           radius * Math.sin(phi) * Math.sin(theta)
         )
-        const base = 0.14 + random() * 0.12
+        const base = 0.16 + random() * 0.14
         sprite.scale.setScalar(base)
         group.add(sprite)
         markers.push({ sprite, base, phase: random() * Math.PI * 2 })
@@ -305,8 +305,8 @@ export function ChromeCore({ className }: { className?: string }) {
       }
 
       function resize() {
-        const width = container.clientWidth || 600
-        const height = container.clientHeight || 600
+        const width = container!.clientWidth || 600
+        const height = container!.clientHeight || 600
         camera.aspect = width / height
         camera.position.z = camera.aspect < 0.85 ? 6.5 : 5.2
         camera.updateProjectionMatrix()
@@ -358,20 +358,22 @@ export function ChromeCore({ className }: { className?: string }) {
 
         wire.rotation.y = -time * 0.045
         wire.rotation.x = time * 0.03
+        wire.rotation.z = time * 0.02
 
-        ringA.rotation.y = time * 0.12
-        ringB.rotation.y = -time * 0.09
+        ringA.rotation.y = time * 0.15
+        ringB.rotation.y = -time * 0.11
 
-        haloA.rotation.z = time * 0.16
-        haloB.rotation.z = -time * 0.11
+        haloA.rotation.z = time * 0.18
+        haloB.rotation.z = -time * 0.13
 
-        particles.rotation.y = time * 0.012
-        particles.rotation.x = Math.sin(time * 0.06) * 0.04
+        particles.rotation.y = time * 0.014
+        particles.rotation.x = Math.sin(time * 0.08) * 0.05
+        particles.rotation.z = Math.cos(time * 0.06) * 0.03
 
         for (const marker of markers) {
-          const pulse = 1 + Math.sin(time * 1.5 + marker.phase) * 0.26
+          const pulse = 1 + Math.sin(time * 1.8 + marker.phase) * 0.32
           marker.sprite.scale.setScalar(marker.base * pulse)
-          ;(marker.sprite.material as THREE.SpriteMaterial).opacity = 0.42 + Math.sin(time * 1.5 + marker.phase) * 0.22
+          ;(marker.sprite.material as THREE.SpriteMaterial).opacity = 0.48 + Math.sin(time * 1.8 + marker.phase) * 0.28
         }
 
         camera.position.x += (pointerX * 0.26 - camera.position.x) * 0.035

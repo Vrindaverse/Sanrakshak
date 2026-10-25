@@ -16,10 +16,12 @@ function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement
   )
 }
 
-function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div className={cn('font-semibold leading-none tracking-tight', className)} {...props} />
-  )
+function CardTitle({
+  className,
+  as: Tag = 'div',
+  ...props
+}: React.HTMLAttributes<HTMLDivElement> & { as?: React.ElementType }) {
+  return <Tag className={cn('font-semibold leading-none tracking-tight', className)} {...props} />
 }
 
 function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

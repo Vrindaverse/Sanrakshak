@@ -42,7 +42,7 @@ export default function Register() {
             <Shield className="h-10 w-10" />
           </div>
         </div>
-        <CardTitle className="text-2xl">Create an account</CardTitle>
+        <CardTitle as="h1" className="text-2xl">Create an account</CardTitle>
         <CardDescription>Join Sanrakshak to secure your websites</CardDescription>
       </CardHeader>
       <CardContent className="px-8 pb-6">
@@ -51,22 +51,28 @@ export default function Register() {
             <Label htmlFor="name" className="text-sm font-medium">Full Name</Label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input id="name" type="text" placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} className="pl-10" required />
+              <Input id="name" type="text" placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} className="h-11 pl-10" required />
             </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="email" className="text-sm font-medium">Email</Label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10" required />
+              <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="h-11 pl-10" required />
             </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="password" className="text-sm font-medium">Password</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input id="password" type={showPassword ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-10 pr-10" required />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <Input id="password" type={showPassword ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="h-11 pl-10 pr-12" required />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-pressed={showPassword}
+                className="absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
@@ -75,7 +81,7 @@ export default function Register() {
             <Label htmlFor="confirmPassword" className="text-sm font-medium">Confirm Password</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input id="confirmPassword" type={showPassword ? 'text' : 'password'} placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="pl-10" required />
+              <Input id="confirmPassword" type={showPassword ? 'text' : 'password'} placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="h-11 pl-10" required />
             </div>
           </div>
           {error && <p className="text-sm text-destructive bg-destructive/5 rounded-lg px-3 py-2.5">{error}</p>}
@@ -88,7 +94,7 @@ export default function Register() {
       <CardFooter className="justify-center pb-8 border-t pt-6 bg-muted/20">
         <p className="text-sm text-muted-foreground">
           Already have an account?{' '}
-          <Link to="/login" className="font-medium hover:underline">Sign in</Link>
+          <Link to="/login" className="inline-flex min-h-11 items-center font-medium hover:underline">Sign in</Link>
         </p>
       </CardFooter>
     </Card>
