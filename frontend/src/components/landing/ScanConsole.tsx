@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useInView } from 'framer-motion'
+import { useInView, useReducedMotion } from 'framer-motion'
 import { RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Counter } from './Counter'
@@ -31,12 +31,20 @@ const TONE: Record<Tone, string> = {
 export function ScanConsole() {
   const ref = useRef<HTMLDivElement>(null)
   const inView = useInView(ref, { once: true, margin: '-16%' })
+  const reduceMotion = useReducedMotion()
   const [visibleCount, setVisibleCount] = useState(1)
   const [done, setDone] = useState(false)
   const [run, setRun] = useState(0)
 
   useEffect(() => {
     if (!inView) return
+
+    if (reduceMotion) {
+      setVisibleCount(LINES.length)
+      setDone(true)
+      return
+    }
+
     let index = 1
     const interval = window.setInterval(() => {
       index += 1
@@ -48,7 +56,7 @@ export function ScanConsole() {
     }, 560)
 
     return () => window.clearInterval(interval)
-  }, [inView, run])
+  }, [inView, run, reduceMotion])
 
   const visibleLines = LINES.slice(0, visibleCount)
 

@@ -1,4 +1,4 @@
-import { motion, useMotionValue, useSpring } from 'framer-motion'
+import { motion, useMotionValue, useReducedMotion, useSpring } from 'framer-motion'
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
@@ -17,13 +17,14 @@ const variants: Record<Variant, string> = {
 }
 
 function useMagnetic(strength = 0.22) {
+  const reduceMotion = useReducedMotion()
   const x = useMotionValue(0)
   const y = useMotionValue(0)
   const springX = useSpring(x, { stiffness: 260, damping: 18, mass: 0.4 })
   const springY = useSpring(y, { stiffness: 260, damping: 18, mass: 0.4 })
 
   function onPointerMove(event: ReactPointerEvent<HTMLElement>) {
-    if (event.pointerType === 'touch') return
+    if (reduceMotion || event.pointerType === 'touch') return
     const rect = event.currentTarget.getBoundingClientRect()
     x.set((event.clientX - rect.left - rect.width / 2) * strength)
     y.set((event.clientY - rect.top - rect.height / 2) * strength)

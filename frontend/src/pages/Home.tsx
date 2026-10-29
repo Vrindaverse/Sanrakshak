@@ -1,6 +1,6 @@
-import type { ComponentType } from 'react'
+import { useRef, useState, type ComponentType } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, useInView } from 'framer-motion'
 import {
   AlertTriangle,
   ArrowDown,
@@ -20,7 +20,7 @@ import { ChromeCursor } from '@/components/landing/ChromeCursor'
 import { Counter } from '@/components/landing/Counter'
 import { MagneticButton, MagneticLink } from '@/components/landing/MagneticButton'
 import { PortGrid } from '@/components/landing/PortGrid'
-import { Preloader } from '@/components/landing/Preloader'
+import { Preloader, shouldPlayIntro } from '@/components/landing/Preloader'
 import { Reveal, Stagger } from '@/components/landing/Reveal'
 import { ScanConsole } from '@/components/landing/ScanConsole'
 import { ScrollProgress } from '@/components/landing/ScrollProgress'
@@ -29,23 +29,26 @@ import { TiltCard } from '@/components/landing/TiltCard'
 import { ThreatGlobe } from '@/components/landing/ThreatGlobe'
 import { VelocityMarquee } from '@/components/landing/VelocityMarquee'
 import { Wordmark } from '@/components/landing/BrandMark'
+import { EASE_OUT_EXPO, EASE_OUT_SOFT, revealItem, staggerContainer } from '@/lib/motion'
 
-const heroContainer = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.12, delayChildren: 0.2 } },
-}
+const heroContainer = staggerContainer(0.09, 0.1)
 
 const heroItem = {
-  hidden: { opacity: 0, y: 30, filter: 'blur(4px)' },
-  show: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 1, ease: [0.22, 1, 0.36, 1] as const } },
-}
-
-const revealItem = {
-  hidden: { opacity: 0, y: 22 },
+  hidden: { opacity: 0, y: 28, filter: 'blur(5px)' },
   show: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as const },
+    filter: 'blur(0px)',
+    transition: { duration: 1, ease: EASE_OUT_SOFT },
+  },
+}
+
+const heroLine = {
+  hidden: { opacity: 0, y: '108%' },
+  show: {
+    opacity: 1,
+    y: '0%',
+    transition: { duration: 1.1, ease: EASE_OUT_EXPO },
   },
 }
 
@@ -156,14 +159,34 @@ function CardKicker({
 }
 
 function ScoreRing() {
+  const ref = useRef<HTMLDivElement>(null)
+  const inView = useInView(ref, { once: true, margin: '-10%' })
+  const radius = 41
+  const circumference = 2 * Math.PI * radius
+  const offset = circumference * (1 - 0.74)
+
   return (
-    <div className="relative h-24 w-24">
-      <div
-        className="absolute inset-0 rounded-full"
-        style={{ background: 'conic-gradient(var(--acid) 0 74%, oklch(1 0 0 / 0.08) 74% 100%)' }}
-      />
-      <div className="absolute inset-[3px] flex flex-col items-center justify-center rounded-full bg-[oklch(0.155_0.014_250)]">
-        <span className="type-mono text-2xl text-foreground">74</span>
+    <div ref={ref} className="relative h-24 w-24">
+      <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90" aria-hidden="true">
+        <circle cx="50" cy="50" r={radius} fill="none" stroke="oklch(1 0 0 / 0.08)" strokeWidth="6" />
+        <motion.circle
+          cx="50"
+          cy="50"
+          r={radius}
+          fill="none"
+          stroke="var(--acid)"
+          strokeWidth="6"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          initial={{ strokeDashoffset: circumference }}
+          animate={inView ? { strokeDashoffset: offset } : undefined}
+          transition={{ duration: 1.3, ease: EASE_OUT_EXPO }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="type-mono text-2xl text-foreground">
+          <Counter to={74} pad={2} duration={1300} />
+        </span>
         <span className="type-mono text-[0.5rem] uppercase tracking-[0.18em] text-muted-foreground/70">example</span>
       </div>
     </div>
@@ -172,11 +195,12 @@ function ScoreRing() {
 
 export default function Home() {
   const navigate = useNavigate()
+  const [introDone, setIntroDone] = useState(() => !shouldPlayIntro())
 
   return (
     <div id="top" className="site-page">
       <a href="#main-content" className="skip-link">Skip to content</a>
-      <Preloader />
+      <Preloader onExitStart={() => setIntroDone(true)} />
       <ChromeCursor />
       <ScrollProgress />
       <SiteHeader />
@@ -189,7 +213,7 @@ export default function Home() {
             <motion.div
               variants={heroContainer}
               initial="hidden"
-              animate="show"
+              animate={introDone ? 'show' : 'hidden'}
               className="relative z-10 max-w-2xl"
             >
               <motion.p variants={heroItem} className="eyebrow">
@@ -198,11 +222,17 @@ export default function Home() {
               </motion.p>
 
               <motion.h1
-                variants={heroItem}
+                variants={{ hidden: {}, show: { transition: { staggerChildren: 0.1 } } }}
                 className="type-display mt-6 text-[clamp(3.5rem,8.4vw,7.5rem)] leading-[0.86] tracking-[-0.035em]"
               >
-                See what
-                <br className="hidden sm:block" /> <em className="chrome-text">attackers</em> see.
+                <span className="-mb-[0.06em] block overflow-hidden pb-[0.06em]">
+                  <motion.span variants={heroLine} className="block">See what</motion.span>
+                </span>
+                <span className="-mb-[0.06em] block overflow-hidden pb-[0.06em]">
+                  <motion.span variants={heroLine} className="block">
+                    <em className="chrome-text">attackers</em> see.
+                  </motion.span>
+                </span>
               </motion.h1>
 
               <motion.p
@@ -241,7 +271,12 @@ export default function Home() {
               </motion.div>
             </motion.div>
 
-            <div className="relative order-first h-[380px] sm:h-[500px] lg:order-last lg:h-[640px]">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={introDone ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.96 }}
+              transition={{ duration: 1.2, ease: EASE_OUT_EXPO, delay: 0.1 }}
+              className="relative order-first h-[380px] sm:h-[500px] lg:order-last lg:h-[640px]"
+            >
               <ChromeCore />
 
               <div className="glass-panel chrome-border pointer-events-none absolute left-0 top-5 rounded-xl px-3.5 py-2.5 sm:left-2">
@@ -263,7 +298,7 @@ export default function Home() {
                   AI verdict / plain English
                 </p>
               </div>
-            </div>
+            </motion.div>
           </div>
 
           <div className="section-shell relative flex items-center gap-5 pb-8">
@@ -288,7 +323,8 @@ export default function Home() {
                   Your attack surface, <em className="chrome-text">in orbit.</em>
                 </SectionHeading>
                 <p className="mt-6 max-w-md text-sm leading-relaxed text-muted-foreground sm:text-base">
-                  Drag to rotate. Every point is a live finding. The globe is the map attackers use.
+                  Drag or use the arrow keys to rotate. Every point is a live finding.
+                  The globe is the map attackers use.
                 </p>
               </Reveal>
               <div className="relative h-[420px] sm:h-[520px]">

@@ -1,4 +1,7 @@
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { useLocation } from 'react-router-dom'
+import { type ReactNode } from 'react'
+import { EASE_OUT_EXPO, EASE_OUT_SOFT } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 
 interface AnimatedPageProps {
@@ -7,102 +10,20 @@ interface AnimatedPageProps {
 }
 
 export function AnimatedPage({ children, className }: AnimatedPageProps) {
-  return (
-    <div className={cn('animate-fade-in', className)}>
-      {children}
-    </div>
-  )
-}
-
-interface AnimateOnViewProps {
-  children: ReactNode
-  className?: string
-  delay?: number
-}
-
-export function AnimateOnView({ children, className, delay = 0 }: AnimateOnViewProps) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [visible, setVisible] = useState(false)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setTimeout(() => setVisible(true), delay)
-          observer.disconnect()
-        }
-      },
-      { threshold: 0.1 }
-    )
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [delay])
+  const { pathname } = useLocation()
 
   return (
-    <div
-      ref={ref}
-      className={cn(
-        'opacity-0 translate-y-4 transition-all duration-500 ease-out',
-        visible && 'opacity-100 translate-y-0',
-        className
-      )}
-    >
-      {children}
-    </div>
-  )
-}
-
-interface CountUpProps {
-  end: number
-  duration?: number
-  className?: string
-}
-
-export function CountUp({ end, duration = 1000, className }: CountUpProps) {
-  const [count, setCount] = useState(0)
-  const ref = useRef<HTMLSpanElement>(null)
-  const [started, setStarted] = useState(false)
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !started) {
-          setStarted(true)
-          observer.disconnect()
-        }
-      },
-      { threshold: 0.3 }
-    )
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [started])
-
-  useEffect(() => {
-    if (!started) return
-    const startTime = performance.now()
-    let frame: number
-
-    const animate = (now: number) => {
-      const elapsed = now - startTime
-      const progress = Math.min(elapsed / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3)
-      setCount(Math.floor(eased * end))
-      if (progress < 1) {
-        frame = requestAnimationFrame(animate)
-      }
-    }
-
-    frame = requestAnimationFrame(animate)
-    return () => cancelAnimationFrame(frame)
-  }, [started, end, duration])
-
-  return (
-    <span ref={ref} className={className}>
-      {count}
-    </span>
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={pathname}
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8, transition: { duration: 0.18, ease: EASE_OUT_SOFT } }}
+        transition={{ duration: 0.42, ease: EASE_OUT_EXPO }}
+        className={cn('will-change-transform', className)}
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
   )
 }

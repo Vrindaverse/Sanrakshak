@@ -3,6 +3,7 @@ import {
   motion,
   useAnimationFrame,
   useMotionValue,
+  useReducedMotion,
   useScroll,
   useSpring,
   useTransform,
@@ -22,6 +23,8 @@ export function VelocityMarquee({ items, baseVelocity = 56, className }: Velocit
   const groupWidth = useRef(0)
   const direction = useRef(1)
   const [mobile, setMobile] = useState(false)
+  const [hidden, setHidden] = useState(false)
+  const reduceMotion = useReducedMotion()
 
   const { scrollY } = useScroll()
   const scrollVelocity = useVelocity(scrollY)
@@ -47,7 +50,16 @@ export function VelocityMarquee({ items, baseVelocity = 56, className }: Velocit
     return () => observer.disconnect()
   }, [])
 
+  useEffect(() => {
+    const onVisibilityChange = () => setHidden(document.hidden)
+    onVisibilityChange()
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [])
+
   useAnimationFrame((_, delta) => {
+    if (reduceMotion || hidden) return
+
     const factor = mobile ? 0 : velocityFactor.get()
     if (factor < -0.05) direction.current = -1
     else if (factor > 0.05) direction.current = 1

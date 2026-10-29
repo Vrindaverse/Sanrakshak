@@ -106,6 +106,7 @@ export function ChromeCore({ className }: { className?: string }) {
       if (disposed) return
 
       const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      const compact = window.matchMedia('(max-width: 767px)').matches
       const acid = readVar('--acid', 'oklch(0.9 0.18 130)')
       const ice = readVar('--ice', 'oklch(0.86 0.06 225)')
       const warning = readVar('--warning', 'oklch(0.82 0.15 80)')
@@ -125,7 +126,7 @@ export function ChromeCore({ className }: { className?: string }) {
         return
       }
 
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, compact ? 1.5 : 2))
       renderer.setClearColor(0x000000, 0)
       renderer.outputColorSpace = THREE.SRGBColorSpace
       renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -239,7 +240,7 @@ export function ChromeCore({ className }: { className?: string }) {
       group.add(ringA, ringB)
 
       const random = seededRandom(20261026)
-      const particleCount = 900
+      const particleCount = compact ? 420 : 900
       const positions = new Float32Array(particleCount * 3)
       for (let i = 0; i < particleCount; i += 1) {
         const radius = 2.05 + random() * 2.8
@@ -294,6 +295,8 @@ export function ChromeCore({ className }: { className?: string }) {
       let pointerY = 0
       let scroll = 0
       let visible = true
+      let running = false
+      let elapsed = 0
 
       function onPointerMove(event: PointerEvent) {
         pointerX = (event.clientX / window.innerWidth) * 2 - 1
@@ -319,32 +322,19 @@ export function ChromeCore({ className }: { className?: string }) {
         renderer.render(scene, camera)
       }
 
+      const clock = new THREE.Clock(false)
       const resizeObserver = new ResizeObserver(() => {
         resize()
         if (reduceMotion) renderStatic()
       })
       resizeObserver.observe(container)
 
-      const intersectionObserver = new IntersectionObserver(
-        ([entry]) => {
-          visible = entry.isIntersecting
-        },
-        { threshold: 0 }
-      )
-      intersectionObserver.observe(container)
-
-      window.addEventListener('pointermove', onPointerMove, { passive: true })
-      window.addEventListener('scroll', onScroll, { passive: true })
-      resize()
-      onScroll()
-
-      const clock = new THREE.Clock()
-
       function animate() {
+        if (!running) return
         frame = requestAnimationFrame(animate)
-        if (!visible || document.hidden) return
 
-        const time = clock.getElapsedTime()
+        elapsed += Math.min(clock.getDelta(), 0.05)
+        const time = elapsed
 
         core.rotation.x = time * 0.17
         core.rotation.y = time * 0.23 + pointerX * 0.24
@@ -383,16 +373,50 @@ export function ChromeCore({ className }: { className?: string }) {
         renderer.render(scene, camera)
       }
 
+      function syncLoop() {
+        const shouldRun = visible && !document.hidden && !reduceMotion
+        if (shouldRun && !running) {
+          running = true
+          clock.start()
+          frame = requestAnimationFrame(animate)
+        } else if (!shouldRun && running) {
+          running = false
+          clock.stop()
+          cancelAnimationFrame(frame)
+        }
+      }
+
+      function onVisibilityChange() {
+        syncLoop()
+      }
+
+      const intersectionObserver = new IntersectionObserver(
+        ([entry]) => {
+          visible = entry.isIntersecting
+          syncLoop()
+        },
+        { threshold: 0 }
+      )
+      intersectionObserver.observe(container)
+
+      window.addEventListener('pointermove', onPointerMove, { passive: true })
+      window.addEventListener('scroll', onScroll, { passive: true })
+      document.addEventListener('visibilitychange', onVisibilityChange)
+      resize()
+      onScroll()
+
       if (reduceMotion) {
         renderStatic()
       } else {
-        animate()
+        syncLoop()
       }
 
       cleanup = () => {
+        running = false
         cancelAnimationFrame(frame)
         window.removeEventListener('pointermove', onPointerMove)
         window.removeEventListener('scroll', onScroll)
+        document.removeEventListener('visibilitychange', onVisibilityChange)
         resizeObserver.disconnect()
         intersectionObserver.disconnect()
         scene.traverse((object) => {

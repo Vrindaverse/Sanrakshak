@@ -247,7 +247,7 @@ export default function ScanResults() {
 
   if (scan.status === 'running') {
     const steps = [
-      { label: 'Nmap', sub: 'Port & Service Discovery', status: 'done' as const },
+      { label: 'Nmap', sub: 'Port & Service Discovery', status: 'active' as const },
       { label: 'Nikto', sub: 'Web Server Vulnerability Scanner', status: 'active' as const },
       { label: 'OWASP ZAP', sub: 'Web Application Security Testing', status: 'pending' as const },
       { label: 'Gemini AI', sub: 'Report Generation & Analysis', status: 'pending' as const },

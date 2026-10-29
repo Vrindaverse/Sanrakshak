@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import type { ReactNode } from 'react'
+import { EASE_OUT_SOFT, staggerContainer } from '@/lib/motion'
 
 interface RevealProps {
   children: ReactNode
@@ -16,7 +17,7 @@ export function Reveal({ children, className, delay = 0, y = 26, once = true }: 
       initial={{ opacity: 0, y }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once, margin: '-12% 0px -8% 0px' }}
-      transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1], delay }}
+      transition={{ duration: 0.75, ease: EASE_OUT_SOFT, delay }}
     >
       {children}
     </motion.div>
@@ -36,14 +37,9 @@ export function Stagger({ children, className, delay = 0 }: StaggerProps) {
       initial="hidden"
       whileInView="show"
       viewport={{ once: true, margin: '-12% 0px -8% 0px' }}
-      variants={{
-        hidden: {},
-        show: { transition: { staggerChildren: 0.08, delayChildren: delay } },
-      }}
+      variants={staggerContainer(0.08, delay)}
     >
       {children}
     </motion.div>
   )
 }
-
-

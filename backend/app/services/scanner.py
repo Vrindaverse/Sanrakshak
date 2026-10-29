@@ -126,13 +126,13 @@ def run_nikto(target: str) -> dict:
     host = parsed.hostname
     safe_name = hashlib.md5(validated.encode()).hexdigest()[:12]
     output_path = f"/tmp/nikto_{safe_name}"
-    if parsed.scheme == "https":
-        parsed = urlparse("http://" + validated)
-    cmd_host = f"{parsed.hostname}:{parsed.port or (443 if parsed.scheme == 'https' else 80)}"
-    if parsed.scheme == "https":
-        cmd = ["nikto", "-h", parsed.hostname, "-port", str(parsed.port or 443), "-ssl", "-Format", "txt", "-nointeractive", "-output", output_path]
+    is_https = parsed.scheme == "https"
+    nikto_host = host
+    nikto_port = parsed.port or (443 if is_https else 80)
+    if is_https:
+        cmd = ["nikto", "-h", nikto_host, "-port", str(nikto_port), "-ssl", "-Format", "txt", "-nointeractive", "-output", output_path]
     else:
-        cmd = ["nikto", "-h", parsed.hostname, "-port", str(parsed.port or 80), "-Format", "txt", "-nointeractive", "-output", output_path]
+        cmd = ["nikto", "-h", nikto_host, "-port", str(nikto_port), "-Format", "txt", "-nointeractive", "-output", output_path]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, cwd="/tmp")
         raw = (result.stdout or "") + (result.stderr or "")
@@ -257,6 +257,7 @@ async def run_scanners(target: str) -> list[dict]:
             "interpretation": [{"finding": "Invalid target", "detail": "Target validation failed.", "severity": "info"}],
         }]
     loop = asyncio.get_running_loop()
+    # Run nmap and nikto in parallel for faster results
     nmap_task = loop.run_in_executor(None, run_nmap, validated)
     nikto_task = loop.run_in_executor(None, run_nikto, validated)
     zap_task = loop.run_in_executor(None, run_zap, validated)

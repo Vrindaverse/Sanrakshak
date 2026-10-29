@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useRef, useState, type CSSProperties } from 'react'
+import { useInView } from 'framer-motion'
 
 type PortState = 'open' | 'filtered' | 'closed'
 
@@ -71,6 +72,8 @@ const PORTS: PortEntry[] = Object.keys(SERVICES)
 
 export function PortGrid() {
   const [active, setActive] = useState<PortEntry>(PORTS.find((entry) => entry.port === 443) ?? PORTS[0])
+  const gridRef = useRef<HTMLDivElement>(null)
+  const inView = useInView(gridRef, { once: true, margin: '-10%' })
 
   return (
     <div className="w-full">
@@ -78,15 +81,21 @@ export function PortGrid() {
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="animate-scan-line h-px w-full bg-acid/20" />
         </div>
-        <div className="relative grid grid-cols-12 gap-1.5" aria-hidden="true">
+        <div
+          ref={gridRef}
+          data-ready={inView ? 'true' : 'false'}
+          className="port-grid relative grid grid-cols-12 gap-1.5"
+          aria-hidden="true"
+        >
           {PORTS.map((entry, index) => (
             <div
               key={entry.port}
               data-state={entry.state}
               data-active={active.port === entry.port}
               className="port-cell"
-              style={entry.state === 'open' ? { animationDelay: `${index * 90}ms` } : undefined}
-              onMouseEnter={() => setActive(entry)}
+              style={{ '--i': index } as CSSProperties}
+              onPointerEnter={() => setActive(entry)}
+              onClick={() => setActive(entry)}
             />
           ))}
         </div>

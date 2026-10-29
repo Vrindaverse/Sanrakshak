@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { MotionConfig } from 'framer-motion'
 import { AuthProvider } from '@/contexts/AuthProvider'
 import { useAuth } from '@/contexts/useAuth'
 import MainLayout from '@/layouts/MainLayout'
@@ -11,6 +12,7 @@ import Dashboard from '@/pages/Dashboard'
 import Home from '@/pages/Home'
 import { AnimatedPage } from '@/components/AnimatedPage'
 import { type ReactNode } from 'react'
+import { EASE_OUT_SOFT } from '@/lib/motion'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { token, isLoading } = useAuth()
@@ -30,7 +32,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
+        <MotionConfig reducedMotion="user" transition={{ duration: 0.45, ease: EASE_OUT_SOFT }}>
+          <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
           <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
@@ -38,7 +41,8 @@ export default function App() {
           <Route path="/scan/new" element={<ProtectedRoute><NewScan /></ProtectedRoute>} />
           <Route path="/scan/:id" element={<ProtectedRoute><ScanResults /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+          </Routes>
+        </MotionConfig>
       </AuthProvider>
     </BrowserRouter>
   )

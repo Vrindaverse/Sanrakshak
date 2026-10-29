@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react'
-import { motion, useMotionValue, useSpring } from 'framer-motion'
+import { motion, useMotionValue, useReducedMotion, useSpring } from 'framer-motion'
+
+const INTERACTIVE = 'a, button, input, textarea, select, [data-cursor="hover"]'
+
+function isInteractive(target: EventTarget | null) {
+  return target instanceof Element && Boolean(target.closest(INTERACTIVE))
+}
 
 export function ChromeCursor() {
   const [enabled, setEnabled] = useState(false)
   const [hovered, setHovered] = useState(false)
   const [pressed, setPressed] = useState(false)
+  const reduceMotion = useReducedMotion()
 
   const dotX = useMotionValue(-100)
   const dotY = useMotionValue(-100)
@@ -20,15 +27,21 @@ export function ChromeCursor() {
   }, [])
 
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled || reduceMotion) return
 
     document.body.classList.add('chrome-cursor-active')
 
     function onPointerMove(event: PointerEvent) {
       dotX.set(event.clientX)
       dotY.set(event.clientY)
-      const target = event.target as HTMLElement | null
-      setHovered(Boolean(target?.closest('a, button, input, textarea, select, [data-cursor="hover"]')))
+    }
+
+    function onPointerOver(event: PointerEvent) {
+      setHovered(isInteractive(event.target))
+    }
+
+    function onPointerOut(event: PointerEvent) {
+      setHovered(isInteractive(event.relatedTarget))
     }
 
     function onPointerDown() {
@@ -40,18 +53,22 @@ export function ChromeCursor() {
     }
 
     window.addEventListener('pointermove', onPointerMove, { passive: true })
+    window.addEventListener('pointerover', onPointerOver, { passive: true })
+    window.addEventListener('pointerout', onPointerOut, { passive: true })
     window.addEventListener('pointerdown', onPointerDown, { passive: true })
     window.addEventListener('pointerup', onPointerUp, { passive: true })
 
     return () => {
       document.body.classList.remove('chrome-cursor-active')
       window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerover', onPointerOver)
+      window.removeEventListener('pointerout', onPointerOut)
       window.removeEventListener('pointerdown', onPointerDown)
       window.removeEventListener('pointerup', onPointerUp)
     }
-  }, [enabled, dotX, dotY])
+  }, [enabled, reduceMotion, dotX, dotY])
 
-  if (!enabled) return null
+  if (!enabled || reduceMotion) return null
 
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[120] select-none">

@@ -58,6 +58,13 @@
   --chrome-3: oklch(0.52 0.02 240);
   --glass: oklch(0.18 0.02 250 / 0.55);
 
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-expo: cubic-bezier(0.76, 0, 0.24, 1);
+  --dur-fast: 180ms;
+  --dur-base: 320ms;
+  --dur-slow: 700ms;
+
   --font-display: "Instrument Serif", "Iowan Old Style", Georgia, serif;
   --font-sans: "Manrope Variable", "Manrope", ui-sans-serif, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
@@ -143,6 +150,11 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes fade-slide-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @keyframes scale-in {
   from { opacity: 0; transform: scale(0.95); }
   to { opacity: 1; transform: scale(1); }
@@ -188,6 +200,21 @@
 
 @keyframes spin-slow {
   to { transform: rotate(360deg); }
+}
+
+@keyframes port-boot {
+  from { opacity: 0; transform: scale(0.38); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 10px oklch(0.9 0.18 130 / 0.55); }
+  50% { box-shadow: 0 0 18px oklch(0.9 0.18 130 / 0.85); }
+}
+
+@keyframes scan-progress {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(330%); }
 }
 
 @layer base {
@@ -482,7 +509,21 @@
   border-radius: 2px;
   border: 1px solid oklch(1 0 0 / 0.05);
   background: oklch(1 0 0 / 0.03);
-  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  transition:
+    background var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    box-shadow var(--dur-fast) ease,
+    transform var(--dur-fast) var(--ease-out-soft);
+}
+
+.port-grid[data-ready="false"] .port-cell {
+  opacity: 0;
+  transform: scale(0.38);
+}
+
+.port-grid[data-ready="true"] .port-cell {
+  animation: port-boot 520ms var(--ease-out-expo) backwards;
+  animation-delay: calc(var(--i, 0) * 11ms);
 }
 
 .port-cell[data-state="filtered"] {
@@ -494,7 +535,14 @@
   background: var(--acid);
   border-color: var(--acid);
   box-shadow: 0 0 10px oklch(0.9 0.18 130 / 0.55);
-  animation: float-soft 3.4s ease-in-out infinite;
+  animation: glow-pulse 3.4s ease-in-out infinite;
+}
+
+.port-grid[data-ready="true"] .port-cell[data-state="open"] {
+  animation:
+    port-boot 520ms var(--ease-out-expo) backwards,
+    glow-pulse 3.4s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 11ms), calc(var(--i, 0) * 11ms + 620ms);
 }
 
 .port-cell[data-active="true"] {
@@ -502,6 +550,11 @@
   border-color: oklch(1 0 0 / 0.7);
   box-shadow: 0 0 0 2px oklch(1 0 0 / 0.12);
   z-index: 1;
+}
+
+.scan-progress-bar {
+  width: 30%;
+  animation: scan-progress 1.6s var(--ease-in-out-expo) infinite;
 }
 
 .severity-bar {
@@ -528,7 +581,7 @@
 }
 
 .terminal-line {
-  animation: fade-in 0.35s ease-out both;
+  animation: fade-slide-in 0.35s var(--ease-out-soft) both;
 }
 
 .chrome-cursor-active,
@@ -573,7 +626,7 @@
 
 .animate-stagger > * {
   opacity: 0;
-  animation: slide-up 0.5s ease-out forwards;
+  animation: slide-up 0.55s var(--ease-out-soft) forwards;
 }
 
 .animate-stagger > *:nth-child(1) { animation-delay: 0ms; }
@@ -617,8 +670,14 @@
   .hero-aurora,
   .chrome-halo,
   .chrome-text,
+  .port-grid[data-ready="true"] .port-cell,
   .port-cell[data-state="open"],
   .status-dot::after {
+    animation: none !important;
+  }
+
+  .scan-progress-bar {
+    width: 60%;
     animation: none !important;
   }
 }

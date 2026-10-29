@@ -2,6 +2,7 @@ import {
   motion,
   useMotionTemplate,
   useMotionValue,
+  useReducedMotion,
   useSpring,
   useTransform,
 } from 'framer-motion'
@@ -16,6 +17,7 @@ interface TiltCardProps {
 }
 
 export function TiltCard({ children, className, intensity = 7, glare = true }: TiltCardProps) {
+  const reduceMotion = useReducedMotion()
   const x = useMotionValue(0)
   const y = useMotionValue(0)
   const glareX = useMotionValue(50)
@@ -34,7 +36,7 @@ export function TiltCard({ children, className, intensity = 7, glare = true }: T
   const background = useMotionTemplate`radial-gradient(340px circle at ${glareX}% ${glareY}%, oklch(0.92 0.08 150 / 0.1), transparent 68%)`
 
   function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.pointerType === 'touch') return
+    if (reduceMotion || event.pointerType === 'touch') return
     const rect = event.currentTarget.getBoundingClientRect()
     const px = (event.clientX - rect.left) / rect.width
     const py = (event.clientY - rect.top) / rect.height

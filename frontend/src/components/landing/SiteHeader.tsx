@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Menu, X, ArrowUpRight } from 'lucide-react'
 import { useAuth } from '@/contexts/useAuth'
+import { EASE_OUT_SOFT } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 import { Wordmark } from './BrandMark'
 import { MagneticButton } from './MagneticButton'
@@ -128,18 +129,26 @@ export function SiteHeader() {
             className="overflow-hidden border-t border-white/[0.07] bg-[oklch(0.09_0.01_250_/_0.97)] backdrop-blur-2xl md:hidden"
           >
             <div className="flex flex-col gap-1 px-5 py-5">
-              {LINKS.map((link) => (
-                <a
+              {LINKS.map((link, index) => (
+                <motion.a
                   key={link.href}
                   href={link.href}
                   onClick={() => setMenuOpen(false)}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.32, delay: 0.06 + index * 0.045, ease: EASE_OUT_SOFT }}
                   className="flex min-h-12 items-center justify-between rounded-xl px-3 py-3 text-lg text-foreground/85 transition-colors hover:bg-white/[0.04] hover:text-foreground"
                 >
                   {link.label}
                   <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-                </a>
+                </motion.a>
               ))}
-              <div className="mt-3 flex items-center gap-2">
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.32, delay: 0.06 + LINKS.length * 0.045, ease: EASE_OUT_SOFT }}
+                className="mt-3 flex items-center gap-2"
+              >
                 <button
                   type="button"
                   onClick={() => {
@@ -154,7 +163,7 @@ export function SiteHeader() {
                   {token ? 'New scan' : 'Start scan'}
                   <ArrowUpRight className="h-3.5 w-3.5" />
                 </MagneticButton>
-              </div>
+              </motion.div>
             </div>
           </motion.div>
         ) : null}
