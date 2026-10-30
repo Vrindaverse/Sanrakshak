@@ -1,6 +1,10 @@
 import asyncio
+import logging
 import google.genai as genai
 from app.config import settings
+from app.logging import get_logger
+
+logger = get_logger("sanrakshak.ai")
 
 SYSTEM_PROMPT = """You are a cybersecurity report writer. Given a list of vulnerabilities from a website scan, generate:
 1. A short overall assessment (2-3 sentences)
@@ -12,6 +16,7 @@ Keep the language clear and accessible for non-technical users. Use markdown for
 
 async def generate_ai_summary(vulnerabilities: list[dict]) -> str:
     if not settings.gemini_api_key:
+        logger.warning("GEMINI_API_KEY not configured; using fallback summary")
         return _fallback_summary(vulnerabilities)
 
     try:
@@ -36,7 +41,8 @@ async def generate_ai_summary(vulnerabilities: list[dict]) -> str:
             ),
         )
         return response.text or _fallback_summary(vulnerabilities)
-    except Exception:
+    except Exception as exc:
+        logger.exception("AI summary generation failed: %s", exc)
         return _fallback_summary(vulnerabilities)
 
 

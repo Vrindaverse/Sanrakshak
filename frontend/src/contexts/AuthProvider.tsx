@@ -8,7 +8,13 @@ function getInitialToken(): string | null {
 
 function getInitialUser(): User | null {
   const stored = localStorage.getItem('user')
-  return stored ? JSON.parse(stored) as User : null
+  if (!stored) return null
+  try {
+    return JSON.parse(stored) as User
+  } catch {
+    localStorage.removeItem('user')
+    return null
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

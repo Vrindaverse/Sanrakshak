@@ -157,6 +157,7 @@ export default function ScanResults() {
   const { user } = useAuth()
   const [scan, setScan] = useState<ScanResult | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<ReportView>('vulns')
 
   useEffect(() => {
@@ -164,8 +165,10 @@ export default function ScanResults() {
       try {
         const res = await api.get(`/scan/${id}`)
         setScan(res.data)
+        setError(null)
       } catch {
         setScan(null)
+        setError('Failed to load scan results. It may have failed or been removed.')
       } finally {
         setLoading(false)
       }
@@ -175,6 +178,7 @@ export default function ScanResults() {
       try {
         const res = await api.get(`/scan/${id}`)
         setScan(res.data)
+        setError(null)
         if (res.data.status === 'completed' || res.data.status === 'failed') clearInterval(interval)
       } catch {
         clearInterval(interval)
@@ -199,7 +203,15 @@ export default function ScanResults() {
     </div>
   )
 
+  if (error) return (
+    <div className="max-w-5xl mx-auto px-4 py-20">
+      <Card><CardContent className="py-12 sm:py-16 text-center"><AlertCircle className="h-8 w-8 mx-auto text-muted-foreground mb-3" /><h2 className="text-sm sm:text-base font-semibold mb-1">Unable to load results</h2><p className="text-xs sm:text-sm text-muted-foreground mb-4">{error}</p><Button size="sm" onClick={() => navigate('/scan/new')} className="gap-1.5"><Target className="h-3.5 w-3.5" /> Start New Scan</Button></CardContent></Card>
+    </div>
+  )
+
   if (!scan) return null
+
+  const progress = scan.status === 'completed' ? 100 : scan.status === 'failed' ? 0 : 50
 
   const severityCount = (s: string) => scan.vulnerabilities?.filter((v) => v.severity.toLowerCase() === s.toLowerCase()).length || 0
   const groupedVulns = SEVERITY_ORDER.map((s) => ({ severity: s, items: scan.vulnerabilities?.filter((v) => v.severity.toLowerCase() === s) || [] })).filter((g) => g.items.length > 0)
@@ -240,25 +252,30 @@ export default function ScanResults() {
       if (y > 230) { doc.addPage(); y = margin + 10 }
       y += 4; doc.setDrawColor(150); doc.line(margin, y, pageW - margin, y); y += 8
       doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.text('AI Summary', margin, y); y += 8
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.text(doc.splitTextToSize(scan.ai_summary.replace(/[*#]/g, ''), pageW - margin * 2), margin, y)
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9)
+      const aiLines = doc.splitTextToSize(scan.ai_summary.replace(/[*#]/g, ''), pageW - margin * 2)
+      for (const line of aiLines) {
+        if (y > 285) { doc.addPage(); y = margin + 10 }
+        doc.text(line, margin, y); y += 5
+      }
     }
     doc.save(`sanrakshak-report-${scan.website.replace(/https?:\/\//, '').replace(/[./]/g, '-')}.pdf`)
   }
 
   if (scan.status === 'running') {
     const steps = [
-      { label: 'Nmap', sub: 'Port & Service Discovery', status: 'active' as const },
-      { label: 'Nikto', sub: 'Web Server Vulnerability Scanner', status: 'active' as const },
-      { label: 'OWASP ZAP', sub: 'Web Application Security Testing', status: 'pending' as const },
-      { label: 'Gemini AI', sub: 'Report Generation & Analysis', status: 'pending' as const },
+      { label: 'Nmap', sub: 'Port & Service Discovery', status: 'active' },
+      { label: 'Nikto', sub: 'Web Server Vulnerability Scanner', status: 'active' },
+      { label: 'OWASP ZAP', sub: 'Web Application Security Testing', status: 'pending' },
+      { label: 'Gemini AI', sub: 'Report Generation & Analysis', status: 'pending' },
     ]
 
     return (
       <div className="max-w-5xl mx-auto px-4">
         <div className="flex items-center gap-3 mb-8"><Button variant="ghost" onClick={() => navigate('/scan/new')} className="gap-1.5 -ml-2 text-sm"><ArrowLeft className="h-4 w-4" /> Back</Button></div>
-        <Card className="overflow-hidden border-muted/30">
-          <div className="h-1 bg-muted/20">
-            <div className="h-full bg-foreground/20 transition-all duration-700 ease-out" style={{ width: '60%' }} />
+          <Card className="overflow-hidden border-muted/30">
+            <div className="h-1 bg-muted/20">
+              <div className="h-full bg-foreground/20 transition-all duration-700 ease-out" style={{ width: `${progress}%` }} />
           </div>
           <CardContent className="py-12 sm:py-16">
             <div className="max-w-md mx-auto text-center space-y-10">

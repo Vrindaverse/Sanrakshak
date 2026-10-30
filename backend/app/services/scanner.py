@@ -3,19 +3,62 @@ import hashlib
 import subprocess
 import json
 import re
+import socket
 import ipaddress
+import logging
 from urllib.parse import urlparse
+
+from app.logging import get_logger
+
+logger = get_logger("sanrakshak.scanner")
+
+
+_INTERNAL_TLDS = (".localhost", ".local", ".internal", ".invalid", ".test", ".example")
+
+
+def _is_private_ip(ip) -> bool:
+    return (
+        ip.is_private or ip.is_loopback or ip.is_link_local
+        or ip.is_reserved or ip.is_multicast or ip.is_unspecified
+    )
+
+
+def _parse_ip_literal(host: str):
+    """Resolve IP literals incl. decimal (2130706433), hex (0x7f000001), octal, dotted-short (127.1)."""
+    try:
+        return ipaddress.ip_address(host)
+    except ValueError:
+        pass
+    if host.isdigit():
+        try:
+            return ipaddress.ip_address(int(host))
+        except ValueError:
+            pass
+    for base, prefix in ((16, "0x"), (8, "0o")):
+        if host.lower().startswith(prefix):
+            try:
+                return ipaddress.ip_address(int(host, base))
+            except ValueError:
+                pass
+    return None
+
+
+def _resolve_host_sync(hostname: str):
+    infos = socket.getaddrinfo(hostname, None, proto=socket.IPPROTO_TCP)
+    return [info[4][0] for info in infos]
+
+
+async def _resolve_host(hostname: str):
+    loop = asyncio.get_running_loop()
+    infos = await loop.getaddrinfo(hostname, None, proto=socket.IPPROTO_TCP)
+    return [info[4][0] for info in infos]
 
 
 def _strip_proto(target: str) -> str:
     t = target.strip()
-    # Remove protocol
     if "://" in t:
         t = t.split("://", 1)[1]
-    # Remove path/query/fragment
     t = t.split("/", 1)[0].split("?", 1)[0].split("#", 1)[0]
-    # Remove port for nmap/host purposes if present (we handle separately)
-    # But keep as-is carefully
     return t
 
 
@@ -24,40 +67,98 @@ def _validate_target(target: str) -> str:
     if not target or not isinstance(target, str):
         raise ValueError("Invalid target")
     t = target.strip()
-    # Disallow newlines/control chars
     if any(ord(c) < 32 or ord(c) == 127 for c in t):
         raise ValueError("Invalid target")
-    # Disallow shell metachars
     if re.search(r'[;&|`$()<>"]', t):
         raise ValueError("Invalid target")
-    # Try to parse as URL
     parsed = urlparse(t if "://" in t else "http://" + t)
     host = parsed.hostname
     if not host:
         raise ValueError("Invalid target")
-    # Block localhost/internal/private/reserved/link-local/multicast
-    is_private_ip = False
-    try:
-        ip = ipaddress.ip_address(host)
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast or ip.is_unspecified:
-            is_private_ip = True
-    except ValueError:
-        pass  # it's a hostname, not IP literal
+    host = host.lower()
 
-    if is_private_ip:
+    if host == "localhost" or host.endswith(".localhost"):
         raise ValueError("Invalid target")
-    # Basic hostname validation
-    if re.match(r'^localhost$|^localhost\.' , host, re.IGNORECASE):
+    if any(host.endswith(suffix) for suffix in _INTERNAL_TLDS):
         raise ValueError("Invalid target")
+    if "." not in host:
+        raise ValueError("Invalid target")
+
+    ip = _parse_ip_literal(host)
+    if ip is not None:
+        if _is_private_ip(ip):
+            raise ValueError("Invalid target")
+        scheme = parsed.scheme if parsed.scheme in ("http", "https") else ("https" if t.startswith("https") else "http")
+        port = f":{parsed.port}" if parsed.port else ""
+        return f"{scheme}://{host}{port}"
 
     if not re.match(r'^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$', host):
         raise ValueError("Invalid target")
-    # Normalize
+
+    try:
+        resolved = _resolve_host_sync(host)
+    except (socket.gaierror, OSError):
+        raise ValueError("Invalid target")
+    for addr in resolved:
+        try:
+            resolved_ip = ipaddress.ip_address(addr)
+        except ValueError:
+            continue
+        if _is_private_ip(resolved_ip):
+            raise ValueError("Invalid target")
+
     scheme = parsed.scheme if parsed.scheme in ("http", "https") else ("https" if t.startswith("https") else "http")
-    return f"{scheme}://{host}"
+    port = f":{parsed.port}" if parsed.port else ""
+    return f"{scheme}://{host}{port}"
 
 
-def run_nmap(target: str) -> dict:
+_ACTIVE_PROCESSES: dict[str, list[subprocess.Popen]] = {}
+
+
+def _register_process(scan_id: str, proc: subprocess.Popen) -> None:
+    _ACTIVE_PROCESSES.setdefault(scan_id, []).append(proc)
+
+
+def _unregister_process(scan_id: str, proc: subprocess.Popen) -> None:
+    try:
+        _ACTIVE_PROCESSES.get(scan_id, []).remove(proc)
+    except (ValueError, AttributeError):
+        pass
+
+
+def terminate_scan(scan_id: str) -> None:
+    """Terminate all subprocesses still running for a scan (used on timeout/cancel)."""
+    for proc in list(_ACTIVE_PROCESSES.get(scan_id, [])):
+        try:
+            proc.terminate()
+            proc.wait(timeout=5)
+        except Exception:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+    _ACTIVE_PROCESSES.pop(scan_id, None)
+
+
+def _run_cmd(cmd: list[str], timeout: int, scan_id: str | None = None):
+    """Run a command, killing the subprocess on timeout."""
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if scan_id:
+        _register_process(scan_id, proc)
+    try:
+        out, err = proc.communicate(timeout=timeout)
+        return out or "", err or "", proc.returncode
+    except subprocess.TimeoutExpired:
+        logger.warning("Command timed out: %s", " ".join(cmd)[:80])
+        proc.kill()
+        out, err = proc.communicate()
+        return out or "", err or "", -1
+    finally:
+        if scan_id:
+            _unregister_process(scan_id, proc)
+
+
+def run_nmap(scan_id: str, target: str) -> dict:
     try:
         validated = _validate_target(target)
     except Exception as e:
@@ -71,9 +172,10 @@ def run_nmap(target: str) -> dict:
     host = _strip_proto(validated)
     cmd = ["nmap", "-Pn", "-sV", "-sC", "-T4", "--min-rate", "500", host]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-        raw = result.stdout or result.stderr
+        out, err, rc = _run_cmd(cmd, timeout=300, scan_id=scan_id)
+        raw = out or err
     except FileNotFoundError:
+        logger.warning("Nmap not installed on server")
         return {
             "tool": "Nmap",
             "status": "not_installed",
@@ -81,10 +183,6 @@ def run_nmap(target: str) -> dict:
             "raw": "nmap not installed on server",
             "interpretation": [],
         }
-    except subprocess.TimeoutExpired:
-        raw = f"nmap timed out against {target}"
-    except Exception as e:
-        raw = str(e)
 
     ports = re.findall(r"(\d+)/tcp\s+open\s+(\S+)", raw)
     findings = []
@@ -102,16 +200,17 @@ def run_nmap(target: str) -> dict:
             "severity": severity,
         })
 
+    status = "completed" if rc == 0 else "failed"
     return {
         "tool": "Nmap",
-        "status": "completed",
+        "status": status,
         "summary": f"Scanned 1000 ports — {len(ports)} open",
         "raw": raw,
         "interpretation": findings or [{"finding": "No open ports detected", "detail": "All scanned ports are filtered or closed.", "severity": "info"}],
     }
 
 
-def run_nikto(target: str) -> dict:
+def run_nikto(scan_id: str, target: str) -> dict:
     try:
         validated = _validate_target(target)
     except Exception as e:
@@ -125,7 +224,7 @@ def run_nikto(target: str) -> dict:
     parsed = urlparse(validated)
     host = parsed.hostname
     safe_name = hashlib.md5(validated.encode()).hexdigest()[:12]
-    output_path = f"/tmp/nikto_{safe_name}"
+    output_path = f"/tmp/nikto_{safe_name}_{scan_id[:8]}"
     is_https = parsed.scheme == "https"
     nikto_host = host
     nikto_port = parsed.port or (443 if is_https else 80)
@@ -134,14 +233,15 @@ def run_nikto(target: str) -> dict:
     else:
         cmd = ["nikto", "-h", nikto_host, "-port", str(nikto_port), "-Format", "txt", "-nointeractive", "-output", output_path]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, cwd="/tmp")
-        raw = (result.stdout or "") + (result.stderr or "")
+        out, err, rc = _run_cmd(cmd, timeout=300, scan_id=scan_id)
+        raw = (out or "") + (err or "")
         try:
             with open(output_path) as f:
                 raw = f.read()
         except FileNotFoundError:
             pass
     except FileNotFoundError:
+        logger.warning("Nikto not installed on server")
         return {
             "tool": "Nikto",
             "status": "not_installed",
@@ -149,15 +249,6 @@ def run_nikto(target: str) -> dict:
             "raw": "nikto not installed on server",
             "interpretation": [],
         }
-    except subprocess.TimeoutExpired:
-        raw = f"nikto timed out against {target}"
-        try:
-            with open(output_path) as f:
-                raw = f.read()
-        except FileNotFoundError:
-            pass
-    except Exception as e:
-        raw = str(e)
 
     issues = re.findall(r"^\+ (.+)$", raw, re.MULTILINE)
     findings = []
@@ -169,86 +260,23 @@ def run_nikto(target: str) -> dict:
             "severity": "low" if low else "medium",
         })
 
+    status = "completed" if rc == 0 else "failed"
     return {
         "tool": "Nikto",
-        "status": "completed",
+        "status": status,
         "summary": f"Found {len(issues)} security issues",
         "raw": raw,
         "interpretation": findings or [{"finding": "No issues detected", "detail": "Nikto did not find any security issues.", "severity": "info"}],
     }
 
 
-def run_zap(target: str) -> dict:
+async def run_scanners(scan_id: str, target: str) -> list[dict]:
+    # Validate once (off the event loop: DNS resolution is blocking)
+    loop = asyncio.get_running_loop()
     try:
-        validated = _validate_target(target)
-    except Exception as e:
-        return {
-            "tool": "OWASP ZAP",
-            "status": "error",
-            "summary": "Invalid target",
-            "raw": str(e),
-            "interpretation": [{"finding": "Invalid target", "detail": "Target validation failed.", "severity": "info"}],
-        }
-    safe_name = hashlib.md5(validated.encode()).hexdigest()[:12]
-    output_path = f"/tmp/zap_report_{safe_name}.json"
-    cmd = ["zap-cli", "--quick", validated, "--output", output_path]
-    raw = ""
-    alerts = []
-    try:
-        subprocess.run(cmd, capture_output=True, text=True, timeout=600)
-    except FileNotFoundError:
-        return {
-            "tool": "OWASP ZAP",
-            "status": "not_installed",
-            "summary": "ZAP not installed on server",
-            "raw": "zap-cli not installed on server",
-            "interpretation": [],
-        }
-    except subprocess.TimeoutExpired:
-        raw = f"zap-cli timed out against {target}"
-    except Exception as e:
-        raw = str(e)
-
-    if not raw:
-        try:
-            with open(output_path) as f:
-                data = json.load(f)
-            raw = json.dumps(data, indent=2)
-            for site in data.get("site", []):
-                alerts.extend(site.get("alerts", []))
-        except FileNotFoundError:
-            raw = "ZAP output file not found"
-        except Exception as e:
-            raw = str(e)
-
-    severities = {"High": 0, "Medium": 0, "Low": 0}
-    for a in alerts:
-        s = a.get("risk", "")
-        if s in severities:
-            severities[s] += 1
-
-    parts = [f"{v} {k.lower()}-risk" for k, v in severities.items() if v > 0]
-    summary = ", ".join(parts) if parts else "No alerts"
-
-    risk_map = {"High": "high", "Medium": "medium", "Low": "low"}
-
-    return {
-        "tool": "OWASP ZAP",
-        "status": "completed",
-        "summary": summary,
-        "raw": raw,
-        "interpretation": [
-            {"finding": a.get("name", "Unknown"), "detail": a.get("description", ""), "severity": risk_map.get(a.get("risk", ""), "low")}
-            for a in alerts[:10]
-        ] or [{"finding": "No alerts detected", "detail": "ZAP did not find any vulnerabilities.", "severity": "info"}],
-    }
-
-
-async def run_scanners(target: str) -> list[dict]:
-    # Validate once
-    try:
-        validated = _validate_target(target)
-    except Exception:
+        validated = await loop.run_in_executor(None, _validate_target, target)
+    except Exception as exc:
+        logger.warning("Target validation failed for %s: %s", target, exc)
         return [{
             "tool": "Nmap",
             "status": "error",
@@ -256,13 +284,11 @@ async def run_scanners(target: str) -> list[dict]:
             "raw": "Target validation failed",
             "interpretation": [{"finding": "Invalid target", "detail": "Target validation failed.", "severity": "info"}],
         }]
-    loop = asyncio.get_running_loop()
     # Run nmap and nikto in parallel for faster results
-    nmap_task = loop.run_in_executor(None, run_nmap, validated)
-    nikto_task = loop.run_in_executor(None, run_nikto, validated)
-    zap_task = loop.run_in_executor(None, run_zap, validated)
+    nmap_task = loop.run_in_executor(None, run_nmap, scan_id, validated)
+    nikto_task = loop.run_in_executor(None, run_nikto, scan_id, validated)
 
-    results = await asyncio.gather(nmap_task, nikto_task, zap_task, return_exceptions=True)
+    results = await asyncio.gather(nmap_task, nikto_task, return_exceptions=True)
     valid = []
     for r in results:
         if isinstance(r, dict):
@@ -270,12 +296,46 @@ async def run_scanners(target: str) -> list[dict]:
     return valid
 
 
+def _recommendation_for(finding: str, source: str, severity: str) -> str:
+    fl = finding.lower()
+    if "open ports detected" in fl or "no alerts detected" in fl or "no issues detected" in fl:
+        return "No action required."
+    if "not installed" in fl:
+        return f"Install {source or 'the scanner'} to enable its checks."
+    if "port" in fl and "open" in fl:
+        return "Close unused ports, restrict access to trusted IPs, and expose only required services."
+    if "header" in fl:
+        return "Add the missing security header and configure the server to send it on all responses."
+    if "cookie" in fl:
+        return "Set the Secure, HttpOnly, and SameSite flags on all session cookies."
+    if "hsts" in fl:
+        return "Enable HSTS with a sufficiently long max-age and include subdomains."
+    if "server version" in fl or "version is visible" in fl or "apache" in fl or "nginx" in fl:
+        return "Hide server version banners to reduce information disclosure."
+    if "sql" in fl or "xss" in fl:
+        return "Apply input validation, output encoding, and parameterized queries."
+    return f"Review and remediate: {finding}"
+
+
 def extract_vulnerabilities(tool_results: list[dict]) -> list[dict]:
     vulns = []
     seen = set()
 
     for tool in tool_results:
-        if tool.get("status") in ("not_installed", "error"):
+        status = tool.get("status")
+        if status == "error":
+            continue
+        if status == "not_installed":
+            title = f"{tool.get('tool', 'Scanner')} not installed"
+            if title not in seen:
+                seen.add(title)
+                vulns.append({
+                    "title": title,
+                    "severity": "info",
+                    "description": f"{tool.get('tool', 'Scanner')} is not installed on the server, so coverage for this tool is incomplete.",
+                    "recommendation": f"Install {tool.get('tool', 'the scanner')} to enable its checks.",
+                    "source": tool.get("tool", ""),
+                })
             continue
         for item in tool.get("interpretation", []):
             title = item.get("finding", "")
@@ -291,13 +351,13 @@ def extract_vulnerabilities(tool_results: list[dict]) -> list[dict]:
                 "title": title,
                 "severity": severity,
                 "description": item.get("detail", ""),
-                "recommendation": f"Review and fix: {title}",
+                "recommendation": _recommendation_for(title, tool.get("tool", ""), severity),
                 "source": tool.get("tool", ""),
             })
     return vulns
 
 
 def calculate_score(vulnerabilities: list[dict]) -> int:
-    weights = {"critical": 25, "high": 15, "medium": 8, "low": 3, "info": 0}
-    total_deduction = sum(weights.get(v.get("severity", "low"), 3) for v in vulnerabilities)
+    weights = {"critical": 40, "high": 20, "medium": 8, "low": 2, "info": 0}
+    total_deduction = sum(weights.get(v.get("severity", "low"), 2) for v in vulnerabilities)
     return max(0, min(100, 100 - total_deduction))

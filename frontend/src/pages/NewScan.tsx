@@ -18,7 +18,7 @@ interface Scan {
   created_at: string
 }
 
-const EXAMPLE_URLS = ['https://example.com', 'https://testsite.org', 'https://myapp.dev']
+const EXAMPLE_URLS = ['https://example.com', 'https://example.org', 'https://example.net']
 
 function getScoreColor(score: number) {
   if (score >= 80) return 'text-success'

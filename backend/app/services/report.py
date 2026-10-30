@@ -1,4 +1,9 @@
+import html
 from app.models.scan import Scan, Vulnerability
+
+
+def _e(value) -> str:
+    return html.escape(str(value) if value is not None else "", quote=True)
 
 
 def generate_html_report(scan: Scan, vulnerabilities: list[Vulnerability]) -> str:
@@ -6,12 +11,12 @@ def generate_html_report(scan: Scan, vulnerabilities: list[Vulnerability]) -> st
         f"""
         <div class="vuln">
             <div class="vuln-header">
-                <strong>{v.title}</strong>
-                <span class="severity {v.severity}">{v.severity}</span>
+                <strong>{_e(v.title)}</strong>
+                <span class="severity {_e(v.severity)}">{_e(v.severity)}</span>
             </div>
-            <p>{v.description}</p>
-            {f'<p class="source">Source: {v.source}</p>' if v.source else ''}
-            <div class="rec"><strong>Recommendation:</strong> {v.recommendation}</div>
+            <p>{_e(v.description)}</p>
+            {f'<p class="source">Source: {_e(v.source)}</p>' if v.source else ''}
+            <div class="rec"><strong>Recommendation:</strong> {_e(v.recommendation)}</div>
         </div>"""
         for v in vulnerabilities
     )
@@ -20,7 +25,7 @@ def generate_html_report(scan: Scan, vulnerabilities: list[Vulnerability]) -> st
 
     return f"""<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><title>Security Report - {scan.website}</title>
+<head><meta charset="UTF-8"><title>Security Report - {_e(scan.website)}</title>
 <style>
     body {{ font-family: system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 24px; color: #222; background: #fafafa; }}
     h1 {{ font-size: 24px; border-bottom: 2px solid #000; padding-bottom: 8px; }}
@@ -41,12 +46,12 @@ def generate_html_report(scan: Scan, vulnerabilities: list[Vulnerability]) -> st
 </style></head>
 <body>
     <h1>Security Scan Report</h1>
-    <p class="meta"><strong>Website:</strong> {scan.website}</p>
-    <p class="meta"><strong>Date:</strong> {scan.created_at.strftime('%B %d, %Y')}</p>
+    <p class="meta"><strong>Website:</strong> {_e(scan.website)}</p>
+    <p class="meta"><strong>Date:</strong> {_e(scan.created_at.strftime('%B %d, %Y') if scan.created_at else '')}</p>
     <p class="score {score_class}">{scan.score or 'N/A'}/100</p>
     <h2>Vulnerabilities ({len(vulnerabilities)})</h2>
     {vuln_rows if vuln_rows else '<p>No vulnerabilities found.</p>'}
-    {f'<h2>AI Summary</h2><div class="rec">{scan.ai_summary}</div>' if scan.ai_summary else ''}
+    {f'<h2>AI Summary</h2><div class="rec">{_e(scan.ai_summary)}</div>' if scan.ai_summary else ''}
 </body>
 </html>"""
 

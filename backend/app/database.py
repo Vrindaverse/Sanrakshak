@@ -6,10 +6,14 @@ raw_url = settings.database_url
 parsed = urlparse(raw_url)
 params = parse_qs(parsed.query)
 connect_args = {}
-if "sslmode" in params:
-    connect_args["ssl"] = params["sslmode"][0] == "require"
-    clean = parsed._replace(query="")
-    raw_url = urlunparse(clean)
+sslmode = (params.get("sslmode") or [None])[0]
+if sslmode and sslmode != "disable":
+    # require / verify-ca / verify-full / prefer all need TLS for asyncpg
+    connect_args["ssl"] = True
+elif sslmode == "disable":
+    connect_args["ssl"] = False
+clean = parsed._replace(query="")
+raw_url = urlunparse(clean)
 
 engine = create_async_engine(raw_url, echo=False, connect_args=connect_args, pool_pre_ping=True, pool_recycle=3600)
 async_session = async_sessionmaker(engine, expire_on_commit=False)
